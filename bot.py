@@ -39,7 +39,7 @@ HELP = '''
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
-#formatter = logging.Formatter('{levelname:8}: {asctime} {name:10} {message}')
+# formatter = logging.Formatter('{levelname:8}: {asctime} {name:10} {message}')
 formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
 fh = logging.FileHandler('log.txt')
 fh.setLevel(logging.WARNING)
@@ -49,6 +49,7 @@ ch = logging.StreamHandler()
 ch.setLevel(logging.WARNING)
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+
 
 def file_by_url(url, extension='.jpeg'):
     fname = url.split('/')[2] + extension
@@ -62,29 +63,30 @@ def date_from_raw(raw):
     raw_date = raw.split('T')
     date = raw_date[0]
     time = raw_date[1][:-1]
-    return (date, time)
+    return date, time
 
 
 def send_stream_channel_info(chat_id, channel_name, channel_info=False):
-    '''
+    """
         дописать чтобы был статус если он лайн предлагать смотреть стрим инфо
         добавить информаци ю о пользователе партнер ли когда зарегался и тд
         :param channel_name:
         :param chat_id:
+        :param channel_info: if True send channel info too
         :return:
-    '''
+    """
     try:
         stream_by_channel = twitch.streams.by_channel(channel_name)
     except exceptions.ResourceUnavailableException:
         stream_by_channel = None
 
-    if stream_by_channel == None:
+    if stream_by_channel is None:
         text = "Unknown channel"
         bot.send_message(chat_id, text)
         logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
     else:
         stream = stream_by_channel.get('stream')
-        if stream == None:
+        if stream is None:
             text = "{0}'s stream is currently offline.".format(channel_name)
             bot.send_message(chat_id, text)
             logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
@@ -115,7 +117,7 @@ def send_stream_channel_info(chat_id, channel_name, channel_info=False):
 
 
 def send_channel_info(chat_id, channel_name=None, channel=None):
-    '''
+    """
     функция отправляющая информацию о канале
     возможна добыча информации как из словаря {channel}
     так и через запрос к api
@@ -126,14 +128,14 @@ def send_channel_info(chat_id, channel_name=None, channel=None):
     :param channel_name:
     :param channel:
     :return: 0 если успешно 1 если ошибка
+    """
 
-    '''
     if channel_name is None and channel is None:
         return 1
 
     keyboard = types.InlineKeyboardMarkup()
 
-    if channel == None:
+    if channel is None:
         # если вызов был из stream info то информация о стриме не нужна и кнопка с командой отображена не будет
         # иначе кнопка будет добавлена к клавиатуре в последнем сообщении
         try:
@@ -147,7 +149,7 @@ def send_channel_info(chat_id, channel_name=None, channel=None):
             keyboard.add(callback_button)
 
     text = 'Display name: {0}'.format(channel['display_name'])
-    bot.send_message(chat_id, text,disable_web_page_preview=True)
+    bot.send_message(chat_id, text, disable_web_page_preview=True)
     logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
 
     text = 'Game: {0}'.format(channel['game'])
@@ -166,7 +168,7 @@ def send_channel_info(chat_id, channel_name=None, channel=None):
     bot.send_message(chat_id, text, disable_web_page_preview=True)
     logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
 
-    text =  'Views: {0}'.format(channel['views'])
+    text = 'Views: {0}'.format(channel['views'])
     bot.send_message(chat_id, text, disable_web_page_preview=True)
     logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
 
@@ -306,10 +308,9 @@ def top(message):
         name = stream['channel']['name']
         callback_button = types.InlineKeyboardButton(text=name, callback_data='info_stream {0}'.format(name))
         keyboard.add(callback_button)
-    text =  'Top {0} channels by viewers.'.format(str(count))
+    text = 'Top {0} channels by viewers.'.format(str(count))
     bot.send_message(message.chat.id, text, reply_markup=keyboard)
     logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
-
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -331,6 +332,7 @@ def not_implemented(message):
         bot.send_message(message.chat.id, text)
         bot.send_message(message.chat.id, HELP)
 
+
 def main():
     start = False
     while True:
@@ -347,6 +349,4 @@ def main():
 
 
 if __name__ == '__main__':
-   main()
-   #bot.polling(none_stop=True, timeout=120)
-
+    main()
