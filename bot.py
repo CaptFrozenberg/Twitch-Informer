@@ -23,7 +23,8 @@ COMMANDS = [
     '/help',
     '/info_channel',
     '/info_stream',
-    '/info_user'
+    '/info_user',
+    '/top'
 ]
 
 HELP = '''
