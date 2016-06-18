@@ -4,6 +4,7 @@
 import logging
 from os import getcwd
 from urllib.request import urlretrieve
+from time import sleep
 
 import telebot
 from telebot import types
@@ -14,6 +15,8 @@ import config
 from time_zone_offset import get_duration
 
 bot = telebot.TeleBot(config.TOKEN)
+
+CONNECTION_RETRY_TIME = 120
 
 COMMANDS = [
     '/start',
@@ -58,7 +61,7 @@ def date_from_raw(raw):
     raw_date = raw.split('T')
     date = raw_date[0]
     time = raw_date[1][:-1]
-    return date, time
+    return (date, time)
 
 
 def send_stream_channel_info(chat_id, channel_name, channel_info=False):
@@ -77,27 +80,35 @@ def send_stream_channel_info(chat_id, channel_name, channel_info=False):
     if stream_by_channel == None:
         text = "Unknown channel"
         bot.send_message(chat_id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
     else:
         stream = stream_by_channel.get('stream')
         if stream == None:
             text = "{0}'s stream is currently offline.".format(channel_name)
             bot.send_message(chat_id, text)
+            logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
         else:
-            bot.send_message(chat_id, 'Channel: {0}'.format(stream['channel']['name']), \
-                             disable_web_page_preview=True)
-            bot.send_message(chat_id, 'Title: {0}'.format(stream['channel']['status']), \
-                             disable_web_page_preview=True)
-            # bot.send_message(message.chat.id, stream['game'])
+            text = 'Channel: {0}'.format(stream['channel']['name'])
+            bot.send_message(chat_id, text, disable_web_page_preview=True)
+            logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
+            text = 'Title: {0}'.format(stream['channel']['status'])
+            bot.send_message(chat_id, text, disable_web_page_preview=True)
+            logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
             url = stream['preview']['medium']
             photo = file_by_url(url, '.jpeg')
             bot.send_photo(chat_id, photo)
+            logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', 'photo'))
+
             # bot.send_message(message.chat.id, 'Followers: {0}'.format(stream['channel']['followers']))
-            duration = get_duration(stream['created_at'])
-            bot.send_message(chat_id, 'The stream started {0} ago.'.format(duration))
+            text = 'The stream started {0} ago.'.format(get_duration(stream['created_at']))
+            bot.send_message(chat_id, text)
+            logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
             keyboard = types.InlineKeyboardMarkup()
             url_button = types.InlineKeyboardButton(text='Watch now!', url=stream['channel']['url'])
             keyboard.add(url_button)
-            bot.send_message(chat_id, 'Viewers: {0}'.format(stream['viewers']), reply_markup=keyboard)
+            text = 'Viewers: {0}'.format(stream['viewers'])
+            bot.send_message(chat_id, text, reply_markup=keyboard)
+            logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
         if channel_info:
             send_channel_info(chat_id, stream['channel'])
 
@@ -134,23 +145,36 @@ def send_channel_info(chat_id, channel_name=None, channel=None):
                                                          callback_data='info_stream {0}'.format(channel_name))
             keyboard.add(callback_button)
 
-    bot.send_message(chat_id, 'Display name: {0}'.format(channel['display_name']), \
-                     disable_web_page_preview=True)
-    bot.send_message(chat_id, 'Game: {0}'.format(channel['game']), \
-                     disable_web_page_preview=True)
-    date, time = date_from_raw(channel['created_at'])
-    bot.send_message(chat_id, 'Created at: {0} {1}'.format(date, time), \
-                     disable_web_page_preview=True)
-    bot.send_message(chat_id, 'Broadcaster language: {0}'.format(channel['broadcaster_language']), \
-                     disable_web_page_preview=True)
-    bot.send_message(chat_id, 'Followers: {0}'.format(channel['followers']), \
-                     disable_web_page_preview=True)
-    bot.send_message(chat_id, 'Views: {0}'.format(channel['views']), \
-                     disable_web_page_preview=True)
+    text = 'Display name: {0}'.format(channel['display_name'])
+    bot.send_message(chat_id, text,disable_web_page_preview=True)
+    logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
+
+    text = 'Game: {0}'.format(channel['game'])
+    bot.send_message(chat_id, text, disable_web_page_preview=True)
+    logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
+
+    text = 'Created at: {0} {1}'.format(*date_from_raw(channel['created_at']))
+    bot.send_message(chat_id, text, disable_web_page_preview=True)
+    logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
+
+    text = 'Broadcaster language: {0}'.format(channel['broadcaster_language'])
+    bot.send_message(chat_id, text, disable_web_page_preview=True)
+    logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
+
+    text = 'Followers: {0}'.format(channel['followers'])
+    bot.send_message(chat_id, text, disable_web_page_preview=True)
+    logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
+
+    text =  'Views: {0}'.format(channel['views'])
+    bot.send_message(chat_id, text, disable_web_page_preview=True)
+    logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
+
     url_button = types.InlineKeyboardButton(text='Open channel!', url=channel['url'])
     keyboard.add(url_button)
-    bot.send_message(chat_id, 'Partner: {0}'.format(channel['partner']), \
-                     disable_web_page_preview=True, reply_markup=keyboard)
+    text = 'Partner: {0}'.format(channel['partner'])
+    bot.send_message(chat_id, text, disable_web_page_preview=True, reply_markup=keyboard)
+    logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
+
     return 0
 
 
@@ -160,35 +184,63 @@ def send_user_info(chat_id, user_name):
     except exceptions.ResourceUnavailableException:
         text = "Unknown user"
         bot.send_message(chat_id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
     else:
-        bot.send_message(chat_id, 'Logo:')
+        text = 'Logo:'
+        bot.send_message(chat_id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
+
         photo = file_by_url(user['logo'])
         bot.send_photo(chat_id, photo)
-        bot.send_message(chat_id, 'Display name: {0}'.format(user['display_name']))
-        date, time = date_from_raw(user['created_at'])
-        bot.send_message(chat_id, 'Created at: {0} {1}'.format(date, time))
-        date, time = date_from_raw(user['updated_at'])
-        bot.send_message(chat_id, 'Last action: {0} {1}'.format(date, time))
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', 'photo'))
+
+        text = 'Display name: {0}'.format(user['display_name'])
+        bot.send_message(chat_id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
+
+        text = 'Created at: {0} {1}'.format(*date_from_raw(user['created_at']))
+        bot.send_message(chat_id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
+
+        text = 'Last action: {0} {1}'.format(*date_from_raw(user['updated_at']))
+        bot.send_message(chat_id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(chat_id, 'bot', text))
 
 
 @bot.message_handler(commands=['start', 'help'])
 def start_help_reply(message):
+    user = message.from_user
+    user_info = '{0!s:12s}{1!s:12s}{2!s:12s}{3!s:12s}'.format(user.id, user.username, user.first_name, user.last_name)
+    logger.warning('Chat id: {0:10} Sender: {1:10} Message: {2}'.format(message.chat.id, user_info, message.text))
+
     text = "Hi! It'll be a cool bot. Please wait till we finish it!"
     bot.send_message(message.chat.id, text)
+    logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
+
     text = 'Now, few commands are available'
     bot.send_message(message.chat.id, text)
+    logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
     bot.send_message(message.chat.id, HELP)
+    logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', 'help'))
 
 
 @bot.message_handler(commands=['info_channel'])
 def info_channel(message):
+    user = message.from_user
+    user_info = '{0!s:12s}{1!s:12s}{2!s:12s}{3!s:12s}'.format(user.id, user.username, user.first_name, user.last_name)
+    logger.warning('Chat id: {0:10} Sender: {1:10} Message: {2}'.format(message.chat.id, user_info, message.text))
     if message.text == '/info_channel':
         text = "Sorry, but a can't give you information about all channels!"
         bot.send_message(message.chat.id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
+
         text = "Write me a channel you need."
         bot.send_message(message.chat.id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
+
         text = "Use syntax: /info_channel <channel name>"
         bot.send_message(message.chat.id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
     else:
         channel_name = message.text.split()[1]
         send_channel_info(message.chat.id, channel_name=channel_name)
@@ -196,13 +248,21 @@ def info_channel(message):
 
 @bot.message_handler(commands=['info_user'])
 def info_user(message):
+    user = message.from_user
+    user_info = '{0!s:12s}{1!s:12s}{2!s:12s}{3!s:12s}'.format(user.id, user.username, user.first_name, user.last_name)
+    logger.warning('Chat id: {0:10} Sender: {1:10} Message: {2}'.format(message.chat.id, user_info, message.text))
     if message.text == '/info_user':
         text = "Sorry, but a can't give you information about all users!"
         bot.send_message(message.chat.id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
+
         text = "Write me a user you need."
         bot.send_message(message.chat.id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
+
         text = "Use syntax: /info_user <username>"
         bot.send_message(message.chat.id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
     else:
         username = message.text.split()[1]
         send_user_info(message.chat.id, username)
@@ -210,13 +270,21 @@ def info_user(message):
 
 @bot.message_handler(commands=['info_stream'])
 def info_stream(message):
+    user = message.from_user
+    user_info = '{0!s:12s}{1!s:12s}{2!s:12s}{3!s:12s}'.format(user.id, user.username, user.first_name, user.last_name)
+    logger.warning('Chat id: {0:10} Sender: {1:10} Message: {2}'.format(message.chat.id, user_info, message.text))
     if message.text == '/info_stream':
         text = "Sorry, but a can't give you information about all streams!"
         bot.send_message(message.chat.id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
+
         text = "Write me a stream you need."
         bot.send_message(message.chat.id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
+
         text = "Use syntax: /info_stream <channel name>"
         bot.send_message(message.chat.id, text)
+        logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
     else:
         channel_name = message.text.split()[1]
         send_stream_channel_info(message.chat.id, channel_name=channel_name)
@@ -224,6 +292,9 @@ def info_stream(message):
 
 @bot.message_handler(commands=['top'])
 def top(message):
+    user = message.from_user
+    user_info = '{0!s:12s}{1!s:12s}{2!s:12s}{3!s:12s}'.format(user.id, user.username, user.first_name, user.last_name)
+    logger.warning('Chat id: {0:10} Sender: {1:10} Message: {2}'.format(message.chat.id, user_info, message.text))
     if message.text == '/top':
         count = 3
     else:
@@ -234,11 +305,17 @@ def top(message):
         name = stream['channel']['name']
         callback_button = types.InlineKeyboardButton(text=name, callback_data='info_stream {0}'.format(name))
         keyboard.add(callback_button)
-    bot.send_message(message.chat.id, 'Top {0} channels by viewers.'.format(str(count)), reply_markup=keyboard)
+    text =  'Top {0} channels by viewers.'.format(str(count))
+    bot.send_message(message.chat.id, text, reply_markup=keyboard)
+    logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
+
 
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
+    user = call.from_user
+    user_info = '{0!s:12s}{1!s:12s}{2!s:12s}{3!s:12s}'.format(user.id, user.username, user.first_name, user.last_name)
+    logger.warning('Chat id: {0!s:10s} Sender: {1!s} Message: {2}'.format(call.message.chat.id, user_info, call.data))
     if call.message:
         data = call.data.split()
         if data[0] == 'info_stream':
@@ -253,12 +330,6 @@ def not_implemented(message):
         bot.send_message(message.chat.id, text)
         bot.send_message(message.chat.id, HELP)
 
-
-
-
-
-
-
 def main():
     start = False
     while True:
@@ -267,16 +338,14 @@ def main():
                 start = True
                 logger.warning('Bot trying to start!')
                 bot.polling(none_stop=True, timeout=120)
-            except:
+            except Exception as e:
+                print(e)
                 start = False
                 logger.warning('Connection lost')
-
-
-
-
-
-
+                sleep(CONNECTION_RETRY_TIME)
 
 
 if __name__ == '__main__':
    main()
+   #bot.polling(none_stop=True, timeout=120)
+
