@@ -344,7 +344,7 @@ def main():
             except Exception as e:
                 print(e)
                 start = False
-                logger.warning('Connection lost')
+                logger.error('Connection lost')
                 sleep(CONNECTION_RETRY_TIME)
 
 
