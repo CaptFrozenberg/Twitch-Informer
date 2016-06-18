@@ -217,7 +217,7 @@ def start_help_reply(message):
     bot.send_message(message.chat.id, text)
     logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
 
-    text = 'Now, few commands are available'
+    text = 'Now, a few commands are available'
     bot.send_message(message.chat.id, text)
     logger.warning('Chat id: {0:10} Sender: {1:7} Message: {2}'.format(message.chat.id, 'bot', text))
     bot.send_message(message.chat.id, HELP)
