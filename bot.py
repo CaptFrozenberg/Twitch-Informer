@@ -343,7 +343,7 @@ def main():
                 bot.polling(none_stop=True, timeout=120)
             except Exception as e:		
                 start = False
-				logger.error(e)
+		logger.error(e)
                 logger.error('Connection lost')
                 sleep(CONNECTION_RETRY_TIME)
 
