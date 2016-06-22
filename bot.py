@@ -1,4 +1,4 @@
-# !usr/bin/python3
+﻿# !usr/bin/python3
 # -*- coding: utf-8 -*-
 
 import logging
@@ -341,9 +341,9 @@ def main():
                 start = True
                 logger.warning('Bot trying to start!')
                 bot.polling(none_stop=True, timeout=120)
-            except Exception as e:
-                print(e)
+            except Exception as e:		
                 start = False
+				logger.error(e)
                 logger.error('Connection lost')
                 sleep(CONNECTION_RETRY_TIME)
 
