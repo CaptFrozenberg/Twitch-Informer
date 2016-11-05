@@ -3,6 +3,7 @@
 
 import logging
 from os import getcwd
+from os.path import abspath, join
 from urllib.request import urlretrieve
 from time import sleep
 
@@ -41,7 +42,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 # formatter = logging.Formatter('{levelname:8}: {asctime} {name:10} {message}')
 formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
-fh = logging.FileHandler('log.txt')
+fh = logging.FileHandler(join(abspath('log'), 'events.log'))
 fh.setLevel(logging.WARNING)
 fh.setFormatter(formatter)
 logger.addHandler(fh)
@@ -343,7 +344,7 @@ def main():
                 bot.polling(none_stop=True, timeout=120)
             except Exception as e:		
                 start = False
-		logger.error(e)
+                logger.error(e)
                 logger.error('Connection lost')
                 sleep(CONNECTION_RETRY_TIME)
 
