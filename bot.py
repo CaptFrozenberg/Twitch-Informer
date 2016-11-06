@@ -7,6 +7,7 @@ from os import getcwd, remove
 from os.path import abspath, join
 from urllib.request import urlretrieve
 from time import sleep
+from re import sub
 
 import telebot
 from telebot import types
@@ -58,14 +59,20 @@ LOGGING_MSG_TEMPLATE = 'Chat id: {0:10} Sender: {1:7} Message: {2}'
 LOGGING_BOT_RESPONSE_TEMPLATE = 'Chat id: {0:10} Sender: {1:48} Message: {2}'
 LOGGING_USER_INFO_TEMPLATE = '{0!s:12s}{1!s:12s}{2!s:12s}{3!s:12s}'
 
+NOT_FOUND_MESSAGE_TEMPLATE = '''
+Sorry, but a can't give you information about all {item}s!
+Write me a {item} you need.
+Use syntax: {usage}
+'''
+
 
 def file_by_url(url, extension='.jpg'):
     resp = requests.get(url)
-    # return resp.contentn ????
-    with open('tmp', 'wb') as f:
+    # return resp.content # WTF????
+    with open('tmp.jpg', 'wb') as f:
         f.write(resp.content)
     data = open('tmp.jpg', 'rb') # ????
-    remove('tmp')
+    remove('tmp.jpg')
     return data
 
 
@@ -101,27 +108,32 @@ def send_stream_channel_info(chat_id, channel_name, channel_info=False):
             bot.send_message(chat_id, text)
             logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
         else:
-            text = 'Channel: {0}'.format(stream['channel']['name'])
-            bot.send_message(chat_id, text, disable_web_page_preview=True)
-            logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
-            text = 'Title: {0}'.format(stream['channel']['status'])
-            bot.send_message(chat_id, text, disable_web_page_preview=True)
-            logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
+            message_template = \
+                '''
+                <b>Channel: </b>{channel}
+                <b>Title: </b>{title}
+                <b>The stream started {duration} ago.</b>
+                <b>Viewers: </b>{viewers}
+                '''
+            kwargs = {
+                'channel': stream['channel']['name'],
+                'title': stream['channel']['status'],
+                'duration': get_duration(stream['created_at']),
+                'viewers': stream['viewers'],
+            }
+            text = message_template.format(**kwargs).replace('    ', '')
+            log_msg = sub(r'<.*?>', '', text).replace(':', ':\n').replace(' ', '').replace('\n', ' ')
+
+            bot.send_message(chat_id, text, disable_web_page_preview=True, parse_mode='HTML')
+            logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', log_msg))
             url = stream['preview']['medium']
             photo = file_by_url(url, '.jpeg')
-            bot.send_photo(chat_id, photo)
-            logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', 'photo'))
-
-            # bot.send_message(message.chat.id, 'Followers: {0}'.format(stream['channel']['followers']))
-            text = 'The stream started {0} ago.'.format(get_duration(stream['created_at']))
-            bot.send_message(chat_id, text)
-            logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
             keyboard = types.InlineKeyboardMarkup()
             url_button = types.InlineKeyboardButton(text='Watch now!', url=stream['channel']['url'])
             keyboard.add(url_button)
-            text = 'Viewers: {0}'.format(stream['viewers'])
-            bot.send_message(chat_id, text, reply_markup=keyboard)
-            logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
+            bot.send_photo(chat_id, photo, reply_markup=keyboard)
+            logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', 'photo'))
+
         if channel_info:
             send_channel_info(chat_id, stream['channel'])
 
@@ -150,7 +162,7 @@ def send_channel_info(chat_id, channel_name=None, channel=None):
         # иначе кнопка будет добавлена к клавиатуре в последнем сообщении
         try:
             channel = twitch.channels.by_name(channel_name)
-            from pprint import pprint; pprint(channel)
+            # from pprint import pprint; pprint(channel)
         except exceptions.ResourceUnavailableException:
             text = "Unknown channel"
             bot.send_message(chat_id, text)
@@ -159,35 +171,32 @@ def send_channel_info(chat_id, channel_name=None, channel=None):
                                                          callback_data='info_stream {0}'.format(channel_name))
             keyboard.add(callback_button)
 
-    text = 'Display name: {0}'.format(channel['display_name'])
-    bot.send_message(chat_id, text, disable_web_page_preview=True)
-    logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
-
-    text = 'Game: {0}'.format(channel['game'])
-    bot.send_message(chat_id, text, disable_web_page_preview=True)
-    logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
-
-    text = 'Created at: {0} {1}'.format(*date_from_raw(channel['created_at']))
-    bot.send_message(chat_id, text, disable_web_page_preview=True)
-    logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
-
-    text = 'Broadcaster language: {0}'.format(channel['broadcaster_language'])
-    bot.send_message(chat_id, text, disable_web_page_preview=True)
-    logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
-
-    text = 'Followers: {0}'.format(channel['followers'])
-    bot.send_message(chat_id, text, disable_web_page_preview=True)
-    logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
-
-    text = 'Views: {0}'.format(channel['views'])
-    bot.send_message(chat_id, text, disable_web_page_preview=True)
-    logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
+    message_template = \
+        '''
+        <b>Display name: </b>{display_name}
+        <b>Game: </b>{game}
+        <b>Created at: </b>{created_at}
+        <b>Broadcaster language: </b> {broadcaster_language}
+        <b>Followers: </b>{followers}
+        <b>Views: </b>{views}
+        <b>Partner: </b>{partner}
+        '''
+    kwargs = {
+        'display_name': channel['display_name'],
+        'game': channel['game'],
+        'created_at': '{0} {1}'.format(*date_from_raw(channel['created_at'])),
+        'broadcaster_language': channel['broadcaster_language'],
+        'followers': channel['followers'],
+        'views': channel['views'],
+        'partner': channel['partner'],
+    }
+    text = message_template.format(**kwargs).replace('    ','')
+    log_msg = sub(r'<.*?>', '', text).replace(':', ':\n').replace(' ', '').replace('\n', ' ')
 
     url_button = types.InlineKeyboardButton(text='Open channel!', url=channel['url'])
     keyboard.add(url_button)
-    text = 'Partner: {0}'.format(channel['partner'])
-    bot.send_message(chat_id, text, disable_web_page_preview=True, reply_markup=keyboard)
-    logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
+    bot.send_message(chat_id, text, disable_web_page_preview=True, reply_markup=keyboard, parse_mode='HTML')
+    logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', log_msg))
 
     return 0
 
@@ -243,18 +252,10 @@ def info_channel(message):
     user = message.from_user
     user_info = LOGGING_USER_INFO_TEMPLATE.format(user.id, user.username, user.first_name, user.last_name)
     logger.warning(LOGGING_MSG_TEMPLATE.format(message.chat.id, user_info, message.text))
-    if message.text == '/info_channel':
-        text = "Sorry, but a can't give you information about all channels!"
+    if '/info_channel' in message.text and (len(message.text.split()) < 2):
+        text = NOT_FOUND_MESSAGE_TEMPLATE.format(item='channel', usage='/info_channel <channel_name>')
         bot.send_message(message.chat.id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text))
-
-        text = "Write me a channel you need."
-        bot.send_message(message.chat.id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text))
-
-        text = "Use syntax: /info_channel <channel name>"
-        bot.send_message(message.chat.id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text))
+        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text.replace('\n', ' ')))
     else:
         channel_name = message.text.split()[1]
         send_channel_info(message.chat.id, channel_name=channel_name)
@@ -265,18 +266,10 @@ def info_user(message):
     user = message.from_user
     user_info = LOGGING_USER_INFO_TEMPLATE.format(user.id, user.username, user.first_name, user.last_name)
     logger.warning(LOGGING_MSG_TEMPLATE.format(message.chat.id, user_info, message.text))
-    if message.text == '/info_user':
-        text = "Sorry, but a can't give you information about all users!"
+    if '/info_user' in message.text and (len(message.text.split()) < 2):
+        text = NOT_FOUND_MESSAGE_TEMPLATE.format(item='user', usage='/info_user <user_name>')
         bot.send_message(message.chat.id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text))
-
-        text = "Write me a user you need."
-        bot.send_message(message.chat.id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text))
-
-        text = "Use syntax: /info_user <username>"
-        bot.send_message(message.chat.id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text))
+        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text.replace('\n', ' ')))
     else:
         username = message.text.split()[1]
         send_user_info(message.chat.id, username)
@@ -287,18 +280,11 @@ def info_stream(message):
     user = message.from_user
     user_info = LOGGING_USER_INFO_TEMPLATE.format(user.id, user.username, user.first_name, user.last_name)
     logger.warning(LOGGING_MSG_TEMPLATE.format(message.chat.id, user_info, message.text))
-    if message.text == '/info_stream':
-        text = "Sorry, but a can't give you information about all streams!"
-        bot.send_message(message.chat.id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text))
 
-        text = "Write me a stream you need."
+    if '/info_stream' in message.text and (len(message.text.split()) < 2):
+        text = NOT_FOUND_MESSAGE_TEMPLATE.format(item='stream', usage='/info_stream <channel_name>')
         bot.send_message(message.chat.id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text))
-
-        text = "Use syntax: /info_stream <channel name>"
-        bot.send_message(message.chat.id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text))
+        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(message.chat.id, 'bot', text.replace('\n', ' ')))
     else:
         channel_name = message.text.split()[1]
         send_stream_channel_info(message.chat.id, channel_name=channel_name)
@@ -309,10 +295,10 @@ def top(message):
     user = message.from_user
     user_info = LOGGING_USER_INFO_TEMPLATE.format(user.id, user.username, user.first_name, user.last_name)
     logger.warning(LOGGING_MSG_TEMPLATE.format(message.chat.id, user_info, message.text))
-    if message.text == '/top':
-        count = 3
-    else:
+    try:
         count = int(message.text.split()[1])
+    except IndexError:
+        count = 3
     result = twitch.streams.all(limit=count)
     keyboard = types.InlineKeyboardMarkup()
     for stream in result['streams']:
@@ -338,10 +324,11 @@ def callback_inline(call):
 
 @bot.message_handler(content_types=['text'])
 def not_implemented(message):
-    if message.text.split()[0] not in COMMANDS:
-        text = 'Unknown command :('
-        bot.send_message(message.chat.id, text)
-        bot.send_message(message.chat.id, HELP)
+    if not (message.chat.id < 0):
+        if message.text.split()[0] not in COMMANDS:
+            text = 'Unknown command :('
+            bot.send_message(message.chat.id, text)
+            bot.send_message(message.chat.id, HELP)
 
 
 def main():
