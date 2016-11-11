@@ -162,7 +162,6 @@ def send_channel_info(chat_id, channel_name=None, channel=None):
         # иначе кнопка будет добавлена к клавиатуре в последнем сообщении
         try:
             channel = twitch.channels.by_name(channel_name)
-            # from pprint import pprint; pprint(channel)
         except exceptions.ResourceUnavailableException:
             text = "Unknown channel"
             bot.send_message(chat_id, text)
@@ -209,26 +208,30 @@ def send_user_info(chat_id, user_name):
         bot.send_message(chat_id, text)
         logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
     else:
-        text = 'Logo:'
-        bot.send_message(chat_id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
 
-        photo = file_by_url(user['logo'])
-        bot.send_photo(chat_id, photo)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', 'photo'))
+        message_template = \
+            '''
+            <b>Display name: </b>{display_name}
+            <b>Created at: </b>{created_at}
+            <b>Last action: </b>{last_action}
+            '''
+        kwargs = {
+            'display_name': user['display_name'],
+            'created_at': '{0} {1}'.format(*date_from_raw(user['created_at'])),
+            'last_action': '{0} {1}'.format(*date_from_raw(user['updated_at'])),
+        }
 
-        text = 'Display name: {0}'.format(user['display_name'])
-        bot.send_message(chat_id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
+        if user.get('logo',''):
+            photo = file_by_url(user['logo'])
+            bot.send_photo(chat_id, photo, caption='LOGO')
+            logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', ' profile photo'))
+        else:
+            message_template += '<b>Logo: </b> No logo'
+        text = message_template.format(**kwargs).replace('    ', '')
+        log_msg = sub(r'<.*?>', '', text).replace(':', ':\n').replace(' ', '').replace('\n', ' ')
 
-        text = 'Created at: {0} {1}'.format(*date_from_raw(user['created_at']))
-        bot.send_message(chat_id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
-
-        text = 'Last action: {0} {1}'.format(*date_from_raw(user['updated_at']))
-        bot.send_message(chat_id, text)
-        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', text))
-
+        bot.send_message(chat_id, text, disable_web_page_preview=True, parse_mode='HTML')
+        logger.warning(LOGGING_BOT_RESPONSE_TEMPLATE.format(chat_id, 'bot', log_msg))
 
 @bot.message_handler(commands=['start', 'help'])
 def start_help_reply(message):
